@@ -1,0 +1,12 @@
+# Node dependencies
+node_modules/
+
+# Temporary execution files
+temp.flint
+input.txt
+
+# Vite/React build output
+dist/
+
+# Environment variables
+.env
