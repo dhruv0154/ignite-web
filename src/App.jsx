@@ -84,7 +84,8 @@ function App() {
   const [isError, setIsError] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
   const [execTime, setExecTime] = useState("0.00");
-  const [outputMode, setOutputMode] = useState("console"); // 'console' or 'ast'
+  const [outputMode, setOutputMode] = useState("console"); // 'console', 'ast', or 'tokens'
+  const [tokensData, setTokensData] = useState([]); // array to hold the parsed tokens
 
   const handleEditorWillMount = (monaco) => {
     monaco.languages.register({ id: 'flint' });
@@ -108,12 +109,16 @@ function App() {
     setCode(snippets[key].code);
     setOutput('Click "Run" to see output...');
     setExecTime("0.00");
-    if (key === "ast_demo") setOutputMode("ast");
+    if (key === "lexer_demo") setOutputMode("tokens");
   };
 
   const handleRunCode = async () => {
     setIsRunning(true);
-    setOutput(outputMode === 'ast' ? "> Generating Syntax Tree...\n" : "> Compiling and Executing...\n");
+    
+    if (outputMode === 'tokens') setOutput("> Running Lexical Scanner...\n");
+    else if (outputMode === 'ast') setOutput("> Generating Syntax Tree...\n");
+    else setOutput("> Compiling and Executing...\n");
+    
     setIsError(false);
     setExecTime("...");
 
@@ -121,21 +126,33 @@ function App() {
       const response = await axios.post('/api/run', { 
         code, 
         input: customInput,
-        astMode: outputMode === 'ast' 
+        astMode: outputMode === 'ast',
+        tokenMode: outputMode === 'tokens'
       });
       
       setIsError(response.data.status === 'error');
       
-      // if we are in AST mode, try to pretty-print the JSON
-      if (outputMode === 'ast' && response.data.status === 'success') {
-        try {
-            const parsed = JSON.parse(response.data.output);
-            setOutput(JSON.stringify(parsed, null, 2));
-        } catch {
-            setOutput(response.data.output); // iallback if C++ didn't output pure JSON
-        }
+      if (response.data.status === 'success') {
+          if (outputMode === 'tokens') {
+              try {
+                  setTokensData(JSON.parse(response.data.output));
+                  setOutput(""); // clear raw text if parse succeeds
+              } catch {
+                  setOutput(response.data.output); // fallback to raw text if JSON is broken
+                  setTokensData([]);
+              }
+          } else if (outputMode === 'ast') {
+              try {
+                  const parsed = JSON.parse(response.data.output);
+                  setOutput(JSON.stringify(parsed, null, 2));
+              } catch {
+                  setOutput(response.data.output); 
+              }
+          } else {
+              setOutput(response.data.output);
+          }
       } else {
-        setOutput(response.data.output);
+          setOutput(response.data.output); // It's an error message
       }
       
       setExecTime(response.data.time || "0.00");
@@ -231,24 +248,36 @@ function App() {
           <div className="output-panel">
             <div className="pane-header output-tabs-header">
                 <div className="output-tabs">
-                    <button 
-                        className={`out-tab ${outputMode === 'console' ? 'active' : ''}`}
-                        onClick={() => setOutputMode('console')}
-                    >
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3fb950" strokeWidth="2"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg> 
-                        Console
+                    <button className={`out-tab ${outputMode === 'console' ? 'active' : ''}`} onClick={() => setOutputMode('console')}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3fb950" strokeWidth="2"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg> Console
                     </button>
-                    <button 
-                        className={`out-tab ${outputMode === 'ast' ? 'active' : ''}`}
-                        onClick={() => setOutputMode('ast')}
-                    >
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#d2a8ff" strokeWidth="2"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
-                        AST Engine
+                    {/* NEW TAB: LEXER TOKENS */}
+                    <button className={`out-tab ${outputMode === 'tokens' ? 'active' : ''}`} onClick={() => setOutputMode('tokens')}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ff8c00" strokeWidth="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path></svg> Lexer Tokens
+                    </button>
+                    <button className={`out-tab ${outputMode === 'ast' ? 'active' : ''}`} onClick={() => setOutputMode('ast')}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#d2a8ff" strokeWidth="2"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg> AST Engine
                     </button>
                 </div>
             </div>
             <div className={`terminal-output ${isError ? 'error-text' : 'success-text'} ${outputMode === 'ast' ? 'ast-text' : ''}`}>
-              <pre>{output}</pre>
+              
+              {/* RENDER THE TOKEN GRID IF IN LEXER MODE */}
+              {outputMode === 'tokens' && tokensData.length > 0 ? (
+                  <div className="token-grid">
+                      {tokensData.map((tok, idx) => (
+                          <div key={idx} className="token-badge">
+                              <span className="token-lexeme">
+                                  {tok.lexeme === "" ? "EOF" : tok.lexeme}
+                              </span>
+                              <span className="token-line">Ln {tok.line}</span>
+                          </div>
+                      ))}
+                  </div>
+              ) : (
+                  <pre>{output}</pre>
+              )}
+
             </div>
             <div className="status-footer">
               <span>Execution time: <strong className="status-highlight">{execTime} ms</strong></span>
