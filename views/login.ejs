@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ignite | Authenticate</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; background-color: #050505; color: #c9d1d9; display: flex; align-items: center; justify-content: center; height: 100vh; }
+        
+        .auth-card { background-color: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 40px; width: 100%; max-width: 400px; box-shadow: 0 10px 30px rgba(0,0,0,0.8); }
+        .logo { text-align: center; margin-bottom: 30px; }
+        .logo h1 { font-size: 30px; font-weight: 800; background: linear-gradient(90deg, #ff4500, #ffba00); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        
+        .tabs { display: flex; margin-bottom: 20px; border-bottom: 1px solid #30363d; }
+        .tab { flex: 1; text-align: center; padding: 10px; cursor: pointer; color: #8b949e; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; transition: 0.2s; }
+        .tab.active { color: #58a6ff; border-bottom: 2px solid #58a6ff; }
+
+        .form-group { margin-bottom: 20px; }
+        .form-group label { display: block; margin-bottom: 8px; font-size: 14px; font-weight: 600; color: #8b949e; }
+        .form-group input { width: 100%; background: #0d1117; border: 1px solid #30363d; color: #c9d1d9; padding: 12px; border-radius: 6px; font-size: 15px; outline: none; }
+        .form-group input:focus { border-color: #58a6ff; }
+
+        .btn { width: 100%; background: #238636; color: white; padding: 12px; font-size: 16px; font-weight: bold; border: none; border-radius: 6px; cursor: pointer; transition: 0.2s; }
+        .btn:hover { background: #2ea043; }
+        
+        #error-msg { color: #ff7b72; margin-top: 15px; text-align: center; font-size: 14px; display: none; }
+    </style>
+</head>
+<body>
+    <div class="auth-card">
+        <div class="logo"><span>🔥</span><h1>Ignite</h1></div>
+        
+        <div class="tabs">
+            <div class="tab active" id="tab-login" onclick="switchTab('login')">Login</div>
+            <div class="tab" id="tab-signup" onclick="switchTab('signup')">Sign Up</div>
+        </div>
+
+        <form id="auth-form">
+            <div class="form-group">
+                <label>Username</label>
+                <input type="text" id="username" required placeholder="e.g. dhruv">
+            </div>
+            <div class="form-group">
+                <label>Password</label>
+                <input type="password" id="password" required placeholder="••••••••">
+            </div>
+            <button type="submit" class="btn" id="submit-btn">Login</button>
+            <div id="error-msg"></div>
+        </form>
+    </div>
+
+    <script>
+        let mode = 'login';
+
+        function switchTab(newMode) {
+            mode = newMode;
+            document.getElementById('tab-login').classList.toggle('active', mode === 'login');
+            document.getElementById('tab-signup').classList.toggle('active', mode === 'signup');
+            document.getElementById('submit-btn').innerText = mode === 'login' ? 'Login' : 'Create Account';
+            document.getElementById('error-msg').style.display = 'none';
+        }
+
+        document.getElementById('auth-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const endpoint = mode === 'login' ? '/api/login' : '/api/register';
+
+            try {
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                   window.location.href = `http://localhost:5173?token=${data.token}&user=${username}`;
+                } else {
+                    document.getElementById('error-msg').innerText = data.message;
+                    document.getElementById('error-msg').style.display = 'block';
+                }
+            } catch (err) {
+                document.getElementById('error-msg').innerText = "Server connection failed.";
+                document.getElementById('error-msg').style.display = 'block';
+            }
+        });
+    </script>
+</body>
+</html>

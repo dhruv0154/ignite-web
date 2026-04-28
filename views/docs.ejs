@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flint Documentation</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; background-color: #0d1117; color: #c9d1d9; line-height: 1.6; }
+        
+        .header { display: flex; align-items: center; padding: 0 40px; height: 75px; background-color: #010409; border-bottom: 1px solid #30363d; }
+        .header a { color: #58a6ff; text-decoration: none; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; }
+        
+        .container { display: flex; max-width: 1200px; margin: 0 auto; padding: 40px 20px; }
+        
+        .sidebar { width: 250px; position: sticky; top: 100px; height: max-content; }
+        .sidebar a { display: block; color: #8b949e; text-decoration: none; padding: 8px 0; transition: 0.2s; }
+        .sidebar a:hover { color: #58a6ff; }
+        
+        .content { flex: 1; padding-left: 40px; border-left: 1px solid #30363d; }
+        h1 { color: #ff8c00; font-size: 40px; margin-bottom: 20px; }
+        h2 { color: #58a6ff; border-bottom: 1px solid #30363d; padding-bottom: 10px; margin: 40px 0 20px; }
+        p { margin-bottom: 15px; color: #8b949e; }
+        
+        pre { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 15px; overflow-x: auto; font-family: 'Fira Code', monospace; margin-bottom: 20px; color: #d2a8ff;}
+        code { background: #161b22; padding: 2px 6px; border-radius: 4px; color: #ffba00; font-family: 'Fira Code', monospace; font-size: 14px; }
+    </style>
+</head>
+<body>
+    <header class="header"><a href="/">&larr; Back to Home</a></header>
+    
+    <div class="container">
+        <nav class="sidebar">
+            <a href="#variables">Variables & Types</a>
+            <a href="#control-flow">Control Flow</a>
+            <a href="#functions">Functions & Lambdas</a>
+            <a href="#classes">Classes & OOP</a>
+            <a href="#arrays-strings">Arrays & Strings</a>
+            <a href="#builtins">Built-in Natives</a>
+        </nav>
+        
+        <main class="content">
+            <h1>Flint Documentation</h1>
+            <p>Welcome to the official documentation for the Flint programming language.</p>
+
+            <h2 id="variables">Variables & Types</h2>
+            <p>Flint supports dynamic typing including numbers, strings, booleans (<code>true</code>/<code>false</code>), and <code>nothing</code> (null). Declare variables using <code>let</code>.</p>
+            <pre>let name = "Ignite";
+let version = 1.0;
+let isActive = true;
+let emptyState = nothing;
+
+// Multiple declarations are supported
+let a = 1, b = 2, c;</pre>
+
+            <h2 id="control-flow">Control Flow</h2>
+            <p>Flint supports standard <code>if/else</code> logic, ternary operators, <code>while</code> loops, and <code>for</code> loops.</p>
+            <pre>if (version >= 1.0) {
+    print("Stable");
+} else {
+    print("Beta");
+}
+
+let parity = (a % 2 == 0) ? "Even" : "Odd";
+
+for (let i = 0; i < 5; i = i + 1) {
+    if (i == 3) continue;
+    print(i);
+}</pre>
+
+            <h2 id="functions">Functions & Lambdas</h2>
+            <p>Define named functions using the <code>func</code> keyword. Flint also supports first-class anonymous functions (lambdas) and closures.</p>
+            <pre>func add(x, y) {
+    return x + y;
+}
+
+// Anonymous lambda assignment
+let multiply = func(a, b) { return a * b; };</pre>
+
+            <h2 id="classes">Classes & Object-Oriented Programming</h2>
+            <p>Flint features single-inheritance classes. Use <code>init()</code> for constructors, <code>class</code> for static methods, and <code>super</code> to access parent methods.</p>
+            <pre>class Animal {
+    class species() { return "Organic"; }
+    speak() { print("Sound!"); }
+}
+
+class Dog < Animal {
+    init(name) {
+        this.name = name;
+    }
+    speak() {
+        super.speak();
+        print(" Bark!");
+    }
+}</pre>
+
+            <h2 id="arrays-strings">Arrays & Strings</h2>
+            <p>Flint includes native array data structures and string manipulation methods.</p>
+            <pre>let arr = [10, 20, 30];
+arr.push(40);
+let last = arr.pop();
+print(arr.length()); // Outputs 3
+arr[0] = 99;
+
+let text = "flint";
+text.upper(); // "FLINT"
+text.lower(); // "flint"</pre>
+
+            <h2 id="builtins">Built-in Native Functions</h2>
+            <p>Flint interfaces natively with C++ via these globally available functions:</p>
+            <ul>
+                <li><code>print(...)</code> - Variadic output to console.</li>
+                <li><code>scan(prompt)</code> - Reads stdin from the user. Automatically parses numbers.</li>
+                <li><code>clock()</code> - Returns system time in seconds.</li>
+                <li><code>intDiv(a, b)</code> - Performs floor division.</li>
+                <li><code>ord(str)</code> / <code>chr(num)</code> - Converts between characters and ASCII codes.</li>
+                <li><code>toString(num)</code> - Coerces numbers to strings.</li>
+            </ul>
+        </main>
+    </div>
+</body>
+</html>

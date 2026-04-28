@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Editor from '@monaco-editor/react';
 import axios from 'axios';
 import './App.css';
+import ASTGraph from './ASTGraph';
 
 const snippets = {
   "hello_world": {
@@ -77,6 +78,26 @@ pyre.start();`
 };
 
 function App() {
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlToken = urlParams.get('token');
+    const urlUser = urlParams.get('user');
+
+    if (urlToken) {
+        // Save the token to port 5173's local storage
+        localStorage.setItem('flint_token', urlToken);
+        localStorage.setItem('flint_user', urlUser || "User");
+        
+        // Clean up the URL so the token isn't sitting in the address bar
+        window.history.replaceState({}, document.title, window.location.pathname);
+    }
+
+    const currentToken = localStorage.getItem('flint_token');
+    if (!currentToken) {
+        window.location.href = "http://localhost:3000/login";
+    }
+  }, []);
+
   const [activeSnippet, setActiveSnippet] = useState("hello_world");
   const [code, setCode] = useState(snippets["hello_world"].code);
   const [customInput, setCustomInput] = useState("Dhruv\n");
@@ -84,10 +105,21 @@ function App() {
   const [isError, setIsError] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
   const [execTime, setExecTime] = useState("0.00");
-  const [outputMode, setOutputMode] = useState("console"); // 'console', 'ast', or 'tokens'
-  const [tokensData, setTokensData] = useState([]); // array to hold the parsed tokens
+  
+  const [outputMode, setOutputMode] = useState("console"); 
+  const [tokensData, setTokensData] = useState([]); 
+  const [astData, setAstData] = useState(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
-  const handleEditorWillMount = (monaco) => {
+  const [selectedNode, setSelectedNode] = useState(null);
+  const editorRef = useRef(null);
+  const decorationsRef = useRef([]);
+
+  const [token, setToken] = useState(localStorage.getItem('flint_token') || null);
+  const [username, setUsername] = useState(localStorage.getItem('flint_user') || "User");
+
+  const handleEditorDidMount = (editor, monaco) => {
+    editorRef.current = editor; 
     monaco.languages.register({ id: 'flint' });
     monaco.languages.setMonarchTokensProvider('flint', {
       keywords: ['let', 'func', 'if', 'else', 'return', 'while', 'for', 'break', 'continue', 'class', 'super', 'this'],
@@ -103,6 +135,37 @@ function App() {
     });
   };
 
+  const handleASTNodeClick = (data) => {
+      if (!data) {
+          setSelectedNode(null);
+          if (editorRef.current) {
+              decorationsRef.current = editorRef.current.deltaDecorations(decorationsRef.current, []);
+          }
+          return;
+      }
+
+      setSelectedNode(data);
+      
+      if (editorRef.current && data.searchQuery) {
+          const model = editorRef.current.getModel();
+          const matches = model.findMatches(data.searchQuery, false, false, false, null, true);
+          
+          if (matches.length > 0) {
+              let targetMatch = matches[0]; 
+              
+              if (data.rawNode.line && data.rawNode.line > 0) {
+                  const exactMatch = matches.find(m => m.range.startLineNumber === data.rawNode.line);
+                  if (exactMatch) targetMatch = exactMatch;
+              }
+
+              editorRef.current.revealLineInCenter(targetMatch.range.startLineNumber);
+              decorationsRef.current = editorRef.current.deltaDecorations(decorationsRef.current, [
+                  { range: targetMatch.range, options: { inlineClassName: 'ast-highlight' } }
+              ]);
+          }
+      }
+  };
+
   const loadSnippet = (e) => {
     const key = e.target.value;
     setActiveSnippet(key);
@@ -112,172 +175,162 @@ function App() {
     if (key === "lexer_demo") setOutputMode("tokens");
   };
 
-  const handleRunCode = async () => {
-    setIsRunning(true);
+  const handleRunCode = async (silent = false) => {
+    if (!silent) setIsRunning(true);
     
-    if (outputMode === 'tokens') setOutput("> Running Lexical Scanner...\n");
-    else if (outputMode === 'ast') setOutput("> Generating Syntax Tree...\n");
-    else setOutput("> Compiling and Executing...\n");
+    if (!silent) {
+        if (outputMode === 'tokens') setOutput("> Running Lexical Scanner...\n");
+        else if (outputMode === 'ast') setOutput("> Generating Syntax Tree...\n");
+        else setOutput("> Compiling and Executing...\n");
+    }
     
     setIsError(false);
-    setExecTime("...");
+    if (!silent) setExecTime("...");
 
     try {
-      const response = await axios.post('/api/run', { 
-        code, 
-        input: customInput,
-        astMode: outputMode === 'ast',
-        tokenMode: outputMode === 'tokens'
+      const currentToken = localStorage.getItem('flint_token');
+      const response = await axios.post('http://localhost:3000/api/run', { 
+        code, input: customInput, astMode: outputMode === 'ast', tokenMode: outputMode === 'tokens'
+      }, {
+        headers: { Authorization: `Bearer ${currentToken}` } 
       });
       
       setIsError(response.data.status === 'error');
       
       if (response.data.status === 'success') {
           if (outputMode === 'tokens') {
-              try {
-                  setTokensData(JSON.parse(response.data.output));
-                  setOutput(""); // clear raw text if parse succeeds
-              } catch {
-                  setOutput(response.data.output); // fallback to raw text if JSON is broken
-                  setTokensData([]);
-              }
+              try { setTokensData(JSON.parse(response.data.output)); if (!silent) setOutput(""); } 
+              catch { setOutput(response.data.output); setTokensData([]); }
           } else if (outputMode === 'ast') {
               try {
-                  const parsed = JSON.parse(response.data.output);
-                  setOutput(JSON.stringify(parsed, null, 2));
-              } catch {
-                  setOutput(response.data.output); 
+                  let cleanOutput = response.data.output.trim().replace(/\n/g, "\\n").replace(/\r/g, "\\r");
+                  setAstData(JSON.parse(cleanOutput)); 
+                  if (!silent) setOutput("");
+              } catch (err) {
+                  setOutput(response.data.output); setAstData(null);
               }
           } else {
               setOutput(response.data.output);
           }
       } else {
-          setOutput(response.data.output); // It's an error message
+          setOutput(response.data.output); 
       }
-      
       setExecTime(response.data.time || "0.00");
     } catch (error) {
       setIsError(true);
       setOutput("Fatal Error: Could not connect to the Ignite execution server.");
     } finally {
-      setIsRunning(false);
+      if (!silent) setIsRunning(false);
     }
   };
+
+  const handleLogout = () => {
+    setToken(null);
+    localStorage.removeItem('flint_token');
+    localStorage.removeItem('flint_user');
+    window.location.href = "http://localhost:3000/login";
+  };
+
+  useEffect(() => {
+      if (outputMode === 'ast' || outputMode === 'tokens') {
+          const timeoutId = setTimeout(() => handleRunCode(true), 600);
+          return () => clearTimeout(timeoutId);
+      }
+  }, [code, outputMode]);
 
   return (
     <div className="app-container">
       <header className="header">
-        <div className="logo">
-          <span className="logo-icon">🔥</span>
-          <h1>Ignite</h1>
-        </div>
+        <div className="logo"><span className="logo-icon">🔥</span><h1>Ignite</h1></div>
         <div className="header-links">
-          <a href="#" className="active-link">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>
-            Compiler Environment
-          </a>
-          <a href="#">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
-            Packages
-          </a>
-          <a href="#">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>
-            Flint Docs
-          </a>
-          <a href="#" className="github-link">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path></svg>
-            GitHub
-          </a>
+          <a href="#" className="active-link">Compiler Environment</a>
+          <a href="http://localhost:3000/docs">Flint Docs</a>
         </div>
-        <div className="user-profile">
-            <div className="avatar">D</div>
-            <span>Dhruv Ranger</span>
+        <div className="user-profile" style={{cursor: 'pointer', marginLeft: 'auto'}} onClick={handleLogout} title="Click to Logout">
+            <div className="avatar">{username.charAt(0).toUpperCase()}</div>
+            <span>{username}</span>
         </div>
       </header>
 
       <div className="workspace">
         <div className="editor-container">
           <div className="action-bar">
-            <div className="file-tabs">
-              <span className="file-tab active">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
-                main.flint
-              </span>
-            </div>
-            
+            <div className="file-tabs"><span className="file-tab active">main.flint</span></div>
             <div className="action-buttons">
               <select className="snippet-dropdown" value={activeSnippet} onChange={loadSnippet}>
                 {Object.entries(snippets).map(([key, data]) => (
                   <option key={key} value={key}>{data.name}</option>
                 ))}
               </select>
-              
-              <button className="run-button" onClick={handleRunCode} disabled={isRunning}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+              <button className="run-button" onClick={() => handleRunCode(false)} disabled={isRunning}>
                 {isRunning ? "Running..." : "Run"}
               </button>
             </div>
           </div>
-
           <div className="editor-wrapper">
             <Editor
-              height="100%"
-              language="flint"
-              theme="vs-dark"
-              value={code}
-              onChange={(value) => setCode(value)}
-              beforeMount={handleEditorWillMount}
+              height="100%" language="flint" theme="vs-dark" value={code}
+              onChange={(value) => setCode(value)} onMount={handleEditorDidMount}
               options={{ minimap: { enabled: false }, fontSize: 16, fontFamily: "'Fira Code', 'Courier New', monospace", padding: { top: 15 } }}
             />
           </div>
         </div>
 
         <div className="io-container">
-          <div className="input-panel">
-            <div className="pane-header">
-              <span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#58a6ff" strokeWidth="2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M13.8 12H3"/></svg> Standard Input</span>
-            </div>
-            <textarea 
-              className="io-textarea"
-              value={customInput}
-              onChange={(e) => setCustomInput(e.target.value)}
-              placeholder="Enter custom stdin inputs here..."
-            />
-          </div>
+          {outputMode === 'console' && (
+              <div className="input-panel">
+                <div className="pane-header"><span>Standard Input</span></div>
+                <textarea className="io-textarea" value={customInput} onChange={(e) => setCustomInput(e.target.value)}/>
+              </div>
+          )}
 
-          <div className="output-panel">
+          <div className={`output-panel ${isFullscreen ? 'fullscreen' : ''}`} style={{ flex: outputMode === 'console' ? 7 : 1 }}>
             <div className="pane-header output-tabs-header">
                 <div className="output-tabs">
-                    <button className={`out-tab ${outputMode === 'console' ? 'active' : ''}`} onClick={() => setOutputMode('console')}>
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3fb950" strokeWidth="2"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg> Console
-                    </button>
-                    {/* NEW TAB: LEXER TOKENS */}
-                    <button className={`out-tab ${outputMode === 'tokens' ? 'active' : ''}`} onClick={() => setOutputMode('tokens')}>
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ff8c00" strokeWidth="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path></svg> Lexer Tokens
-                    </button>
-                    <button className={`out-tab ${outputMode === 'ast' ? 'active' : ''}`} onClick={() => setOutputMode('ast')}>
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#d2a8ff" strokeWidth="2"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg> AST Engine
+                    <button className={`out-tab ${outputMode === 'console' ? 'active' : ''}`} onClick={() => setOutputMode('console')}>Console</button>
+                    <button className={`out-tab ${outputMode === 'tokens' ? 'active' : ''}`} onClick={() => setOutputMode('tokens')}>Lexer Tokens</button>
+                    <button className={`out-tab ${outputMode === 'ast' ? 'active' : ''}`} onClick={() => setOutputMode('ast')}>AST Engine</button>
+                </div>
+                <div className="output-actions">
+                    <button className="icon-btn" onClick={() => setIsFullscreen(!isFullscreen)}>
+                        {isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
                     </button>
                 </div>
             </div>
-            <div className={`terminal-output ${isError ? 'error-text' : 'success-text'} ${outputMode === 'ast' ? 'ast-text' : ''}`}>
-              
-              {/* RENDER THE TOKEN GRID IF IN LEXER MODE */}
+
+            <div className={`terminal-output ${isError ? 'error-text' : 'success-text'} ${outputMode === 'ast' ? 'ast-text' : ''}`} style={{position: 'relative'}}>
               {outputMode === 'tokens' && tokensData.length > 0 ? (
                   <div className="token-grid">
                       {tokensData.map((tok, idx) => (
                           <div key={idx} className="token-badge">
-                              <span className="token-lexeme">
-                                  {tok.lexeme === "" ? "EOF" : tok.lexeme}
-                              </span>
+                              <span className="token-lexeme">{tok.lexeme === "" ? "EOF" : tok.lexeme}</span>
                               <span className="token-line">Ln {tok.line}</span>
                           </div>
                       ))}
                   </div>
+              ) : outputMode === 'ast' && astData ? (
+                  <>
+                      <div style={{ height: '100%', width: '100%', minHeight: '400px' }}>
+                          <ASTGraph astData={astData} onNodeClick={handleASTNodeClick} />
+                      </div>
+                      
+                      {selectedNode && (
+                          <div className="ast-inspector">
+                              <h4>Node Inspector</h4>
+                              <div className="inspector-row"><span>Type:</span> {selectedNode.title}</div>
+                              <div className="inspector-row"><span>Details:</span> <span className="highlight-val">{selectedNode.details}</span></div>
+                              <div className="inspector-desc">
+                                  {selectedNode.title === "Literal Value" && "A hardcoded value injected directly into the memory."}
+                                  {selectedNode.title === "Variable" && "An identifier representing a stored value in the current Environment."}
+                                  {selectedNode.title === "Declaration" && "Allocates a new space in memory for a variable in this specific block scope."}
+                                  {selectedNode.title === "Function Call" && "Pauses current execution, pushes a new frame to the Call Stack, and invokes the Callee."}
+                              </div>
+                          </div>
+                      )}
+                  </>
               ) : (
                   <pre>{output}</pre>
               )}
-
             </div>
             <div className="status-footer">
               <span>Execution time: <strong className="status-highlight">{execTime} ms</strong></span>

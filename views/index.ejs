@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ignite | Flint Language</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; background-color: #050505; color: #c9d1d9; line-height: 1.6; }
+        
+        /* Header Match */
+        .header { display: flex; align-items: center; padding: 0 40px; height: 75px; background-color: #010409; gap: 50px; position: relative; border-bottom: 2px solid #ff4500; }
+        .logo { display: flex; align-items: center; gap: 12px; }
+        .logo h1 { font-size: 30px; font-weight: 800; letter-spacing: 1.5px; background: linear-gradient(90deg, #ff4500, #ffba00); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin:0;}
+        .header-links { display: flex; gap: 30px; flex: 1; }
+        .header-links a { color: #8b949e; text-decoration: none; font-size: 15px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; transition: 0.2s;}
+        .header-links a:hover { color: #c9d1d9; }
+        .auth-btn { margin-left: auto; background: #238636; color: white; padding: 8px 20px; border-radius: 6px; text-decoration: none; font-weight: bold; transition: 0.2s; }
+        .auth-btn:hover { background: #2ea043; }
+
+        /* Hero Section */
+        .hero { display: flex; flex-direction: column; align-items: center; justify-content: center; height: calc(100vh - 75px); text-align: center; padding: 20px; background: radial-gradient(circle at center, #161b22 0%, #050505 100%); }
+        .hero h2 { font-size: 60px; color: #fff; margin-bottom: 20px; }
+        .hero h2 span { color: #58a6ff; }
+        .hero p { font-size: 22px; color: #8b949e; max-width: 600px; margin-bottom: 40px; }
+        .hero .btn-primary { background: #ff4500; color: white; padding: 15px 30px; font-size: 18px; font-weight: bold; text-decoration: none; border-radius: 8px; transition: 0.2s; box-shadow: 0 4px 15px rgba(255, 69, 0, 0.4); }
+        .hero .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(255, 69, 0, 0.6); }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="logo"><span>🔥</span><h1>Ignite</h1></div>
+        <div class="header-links">
+            <a href="/">Home</a>
+            <a href="/docs">Flint Docs</a>
+        </div>
+        <a href="/login" class="auth-btn" id="auth-link">Login / Sign Up</a>
+    </header>
+
+    <div class="hero">
+        <h2>The <span>Flint</span> Programming Language</h2>
+        <p>A fast, modern, tree-walk interpreted language. Built for systems education and visualized perfectly by the Ignite Engine.</p>
+        <a href="http://localhost:5173" class="btn-primary" id="launch-btn">Launch Workspace</a>
+    </div>
+
+    <script>
+        // Check if user is already logged in
+        if (localStorage.getItem('flint_token')) {
+            document.getElementById('auth-link').innerText = "Go to Workspace";
+            document.getElementById('auth-link').href = "http://localhost:5173";
+        } else {
+            // Redirect to login if they try to launch workspace without token
+            document.getElementById('launch-btn').addEventListener('click', (e) => {
+                e.preventDefault();
+                window.location.href = '/login';
+            });
+        }
+    </script>
+</body>
+</html>
