@@ -212,7 +212,7 @@ export default function ASTGraph({ astData, onNodeClick }) {
                 onNodesChange={onNodesChange}
                 onEdgesChange={onEdgesChange}
                 onNodeClick={(e, node) => onNodeClick && onNodeClick(node.data)}
-                onPaneClick={() => onNodeClick && onNodeClick(null)} /* NEW: Clicking empty space clears selection */
+                onPaneClick={() => onNodeClick && onNodeClick(null)}
                 fitView
                 attributionPosition="bottom-right"
             >

@@ -3,9 +3,6 @@ body { font-family: 'Segoe UI', system-ui, sans-serif; background-color: #050505
 
 .app-container { display: flex; flex-direction: column; height: 100vh; position: relative; z-index: 1; }
 
-/* =========================================
-   BIGGER, ANIMATED HEADER
-   ========================================= */
 .header { 
   position: relative;
   display: flex; align-items: center; padding: 0 40px; height: 75px; 
@@ -103,15 +100,11 @@ body { font-family: 'Segoe UI', system-ui, sans-serif; background-color: #050505
 .success-text { color: #c9d1d9; }
 .error-text { color: #ff7b72; }
 
-/* Removing padding inside terminal for the AST View */
 .terminal-output.ast-text { padding: 0; }
 
 .status-footer { display: flex; justify-content: flex-end; gap: 20px; padding: 10px 20px; background-color: #0d1117; border-top: 1px solid #30363d; color: #8b949e; font-size: 13px; font-family: monospace; }
 .status-highlight { color: #58a6ff; font-weight: normal; }
 
-/* =========================================
-   TOKENS
-   ========================================= */
 .token-grid {
     display: flex;
     flex-wrap: wrap;
@@ -156,13 +149,10 @@ body { font-family: 'Segoe UI', system-ui, sans-serif; background-color: #050505
     letter-spacing: 1px;
 }
 
-/* =========================================
-   FULLSCREEN & SMART PANEL STYLES
-   ========================================= */
 .output-panel.fullscreen {
   position: fixed;
   top: 75px; 
-  left: 0;
+  left: 10px;
   right: 0;
   bottom: 0;
   z-index: 1000;
@@ -186,6 +176,8 @@ body { font-family: 'Segoe UI', system-ui, sans-serif; background-color: #050505
   transition: 0.2s;
   display: flex;
   align-items: center;
+  padding: 6px 12px;
+  font-weight: 600;
   justify-content: center;
   padding: 5px;
   border-radius: 4px;
@@ -196,11 +188,6 @@ body { font-family: 'Segoe UI', system-ui, sans-serif; background-color: #050505
   background-color: rgba(255,255,255,0.1);
 }
 
-/* =========================================
-   AST INSPECTOR & MONACO HIGHLIGHTING
-   ========================================= */
-
-/* The floating inspector card inside the AST canvas */
 .ast-inspector {
   position: absolute;
   bottom: 20px;
@@ -213,7 +200,7 @@ body { font-family: 'Segoe UI', system-ui, sans-serif; background-color: #050505
   width: 280px;
   color: #c9d1d9;
   box-shadow: 0 10px 30px rgba(0,0,0,0.8);
-  pointer-events: none; /* Lets you click through the background if needed */
+  pointer-events: none;
   z-index: 10;
   animation: slide-up 0.3s ease-out forwards;
 }
@@ -257,11 +244,20 @@ body { font-family: 'Segoe UI', system-ui, sans-serif; background-color: #050505
   line-height: 1.4;
 }
 
-/* Injected dynamically into Monaco Editor via App.jsx
-  Adds a yellow highlight to the clicked node's text!
-*/
 .ast-highlight {
   background-color: rgba(255, 186, 0, 0.4);
   outline: 1px solid #ffba00;
   border-radius: 3px;
+}
+
+/* =========================================
+   ASSEMBLY BYTECODE EMITTER STYLES
+   ========================================= */
+.assembly-output {
+  color: #ffba00; /* Ignite Signature Orange */
+  font-family: 'Fira Code', 'Courier New', monospace;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.5;
+  text-shadow: 0 0 8px rgba(255, 186, 0, 0.3); /* Subtle neon glow effect */
 }

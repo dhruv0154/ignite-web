@@ -181,6 +181,7 @@ function App() {
     if (!silent) {
         if (outputMode === 'tokens') setOutput("> Running Lexical Scanner...\n");
         else if (outputMode === 'ast') setOutput("> Generating Syntax Tree...\n");
+        else if (outputMode === 'assembly') setOutput("> Emitting Virtual Machine Bytecode...\n");
         else setOutput("> Compiling and Executing...\n");
     }
     
@@ -190,7 +191,11 @@ function App() {
     try {
       const currentToken = localStorage.getItem('flint_token');
       const response = await axios.post('http://localhost:3000/api/run', { 
-        code, input: customInput, astMode: outputMode === 'ast', tokenMode: outputMode === 'tokens'
+        code, 
+        input: customInput, 
+        astMode: outputMode === 'ast', 
+        tokenMode: outputMode === 'tokens',
+        assemblyMode: outputMode === 'assembly' // NEW FLAG SENT TO BACKEND
       }, {
         headers: { Authorization: `Bearer ${currentToken}` } 
       });
@@ -210,6 +215,7 @@ function App() {
                   setOutput(response.data.output); setAstData(null);
               }
           } else {
+              // This safely handles both standard 'console' output AND 'assembly' string output
               setOutput(response.data.output);
           }
       } else {
@@ -232,7 +238,8 @@ function App() {
   };
 
   useEffect(() => {
-      if (outputMode === 'ast' || outputMode === 'tokens') {
+      // ADDED 'assembly' to the auto-run dependency array so it updates live as you type
+      if (outputMode === 'ast' || outputMode === 'tokens' || outputMode === 'assembly') {
           const timeoutId = setTimeout(() => handleRunCode(true), 600);
           return () => clearTimeout(timeoutId);
       }
@@ -290,12 +297,25 @@ function App() {
                     <button className={`out-tab ${outputMode === 'console' ? 'active' : ''}`} onClick={() => setOutputMode('console')}>Console</button>
                     <button className={`out-tab ${outputMode === 'tokens' ? 'active' : ''}`} onClick={() => setOutputMode('tokens')}>Lexer Tokens</button>
                     <button className={`out-tab ${outputMode === 'ast' ? 'active' : ''}`} onClick={() => setOutputMode('ast')}>AST Engine</button>
+                    <button className={`out-tab ${outputMode === 'assembly' ? 'active' : ''}`} onClick={() => setOutputMode('assembly')}>VM Bytecode</button>
                 </div>
-                <div className="output-actions">
-                    <button className="icon-btn" onClick={() => setIsFullscreen(!isFullscreen)}>
-                        {isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
-                    </button>
-                </div>
+               <div className="output-actions">
+    <button 
+        className="icon-btn" 
+        onClick={() => setIsFullscreen(!isFullscreen)}
+        title={isFullscreen ? "Exit Fullscreen" : "Fullscreen"} // Adds a hover tooltip!
+    >
+        {isFullscreen ? (
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"></path>
+            </svg>
+        ) : (
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path>
+            </svg>
+        )}
+    </button>
+</div>
             </div>
 
             <div className={`terminal-output ${isError ? 'error-text' : 'success-text'} ${outputMode === 'ast' ? 'ast-text' : ''}`} style={{position: 'relative'}}>
@@ -329,7 +349,8 @@ function App() {
                       )}
                   </>
               ) : (
-                  <pre>{output}</pre>
+                  // ADDED: Special CSS class applied if outputMode is assembly!
+                  <pre className={outputMode === 'assembly' && !isError ? 'assembly-output' : ''}>{output}</pre>
               )}
             </div>
             <div className="status-footer">
